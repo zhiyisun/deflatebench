@@ -510,15 +510,24 @@ def benchmain():
     printinfo()
 
     # Prepare tempfiles
-    timefile = os.path.join(cfgConfig['temp_path'], 'zlib-time.tmp')
-    compfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.gz')
-    decompfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.raw')
+    if cfgRuns['index'] is None:
+        timefile = os.path.join(cfgConfig['temp_path'], 'zlib-time.tmp')
+        compfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.gz')
+        decompfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.raw')
+    else:
+        timefile = os.path.join(cfgConfig['temp_path'], 'zlib-time.tmp' + str(cfgRuns['index']))
+        compfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.gz' + str(cfgRuns['index']))
+        decompfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.raw' + str(cfgRuns['index']))
+
 
     tempfiles = dict()
 
     # Single testfile, we just reference the same file for every level
     if cfgRuns['testmode'] == 'single':
-        tmp_filename = os.path.join(cfgConfig['temp_path'], "deflatebench.tmp")
+        if cfgRuns['index'] is None:
+            tmp_filename = os.path.join(cfgConfig['temp_path'], "deflatebench.tmp")
+        else:
+            tmp_filename = os.path.join(cfgConfig['temp_path'], "deflatebench.tmp" + str(cfgRuns['index']))
         srcfile = findfile(cfgSingle['testfile'])
         shutil.copyfile(srcfile,tmp_filename)
         tmp_hash = hashfile(tmp_filename)
@@ -540,7 +549,10 @@ def benchmain():
 
         for level in map(str, getlevels()):
             tempfiles[level] = dict()
-            tmp_filename = os.path.join(cfgConfig['temp_path'], f"deflatebench-{level}.tmp")
+            if cfgRuns['index'] is None:
+                tmp_filename = os.path.join(cfgConfig['temp_path'], f"deflatebench-{level}.tmp")
+            else:
+                tmp_filename = os.path.join(cfgConfig['temp_path'], f"deflatebench-{level}.tmp" + str(cfgRuns['index']))
             tempfiles[level]['filename'] = tmp_filename
 
             if cfgRuns['testmode'] == 'multi':
@@ -600,6 +612,7 @@ def main():
     parser.add_argument('-l','--testtool', help='Path to test tool.', action='store')
     parser.add_argument('--skipdecomp', help='Skip decompression benchmarks.', action='store_true')
     parser.add_argument('--skipverify', help='Skip verifying compressed files with system gzip.', action='store_true')
+    parser.add_argument('-i','--index', help='Index when running multiple deflatebench instances.', type=int)
     args = parser.parse_args()
 
     defconfig_path = findfile('deflatebench.conf',fatal=False)
@@ -682,6 +695,9 @@ def main():
 
     if args.skipverify:
         cfgConfig['skipverify'] = True
+
+    if args.index is not None:
+        cfgRuns['index'] = args.index
 
     # Run main benchmarking function
     benchmain()
