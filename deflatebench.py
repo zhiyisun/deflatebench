@@ -82,7 +82,7 @@ def defconfig():
     config = dict()
     config['Testruns'] = {  'runs': 15,
                             'trimworst': 5,
-                            'minlevel': 0,
+                            'minlevel': 1,
                             'maxlevel': 9,
                             'strategies': '', # fhRF
                             'testmode': 'single',  # generate / multi / single
@@ -296,7 +296,12 @@ def runtest(tempfiles,level):
     starttime = time.perf_counter()
     testtool = os.path.realpath(cfgRuns['testtool'])
 
-    runcommand(f"{cmdprefix} {testtool} -{level} -c {testfile}", env=env, output=compfile)
+    if 'qzip' not in cfgRuns['testtool']:
+        runcommand(f"{cmdprefix} {testtool} -{level} -c {testfile}", env=env, output=compfile)
+    else:
+        path_parts = os.path.splitext(compfile)
+        modified_compfile = os.path.join(*path_parts[:-1])
+        runcommand(f"{cmdprefix} {testtool} -k -L {level} -A deflate {testfile} -o {modified_compfile}", env=env)
     if sys.platform != 'win32':
         comptime = parse_timefile(timefile)
     else:
@@ -308,7 +313,10 @@ def runtest(tempfiles,level):
         printnn('d')
         usleep(10)
         starttime = time.perf_counter()
-        runcommand(f"{cmdprefix} {testtool} -d -c {compfile}", env=env, output=decompfile)
+        if 'qzip' not in cfgRuns['testtool']:
+            runcommand(f"{cmdprefix} {testtool} -d -c {compfile}", env=env, output=decompfile)
+        else:
+            runcommand(f"{cmdprefix} {testtool} -k -d {compfile} -o {decompfile}", env=env)
 
         if sys.platform != 'win32':
             decomptime = parse_timefile(timefile)
@@ -515,9 +523,9 @@ def benchmain():
         compfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.gz')
         decompfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.raw')
     else:
-        timefile = os.path.join(cfgConfig['temp_path'], 'zlib-time.tmp' + str(cfgRuns['index']))
-        compfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.gz' + str(cfgRuns['index']))
-        decompfile = os.path.join(cfgConfig['temp_path'], 'zlib-testfil.raw' + str(cfgRuns['index']))
+        timefile = os.path.join(cfgConfig['temp_path'], str(cfgRuns['index']) + 'zlib-time.tmp')
+        compfile = os.path.join(cfgConfig['temp_path'], str(cfgRuns['index']) + 'zlib-testfil.gz')
+        decompfile = os.path.join(cfgConfig['temp_path'], str(cfgRuns['index']) + 'zlib-testfil.raw')
 
 
     tempfiles = dict()
@@ -527,7 +535,7 @@ def benchmain():
         if cfgRuns['index'] is None:
             tmp_filename = os.path.join(cfgConfig['temp_path'], "deflatebench.tmp")
         else:
-            tmp_filename = os.path.join(cfgConfig['temp_path'], "deflatebench.tmp" + str(cfgRuns['index']))
+            tmp_filename = os.path.join(cfgConfig['temp_path'], str(cfgRuns['index']) + "deflatebench.tmp")
         srcfile = findfile(cfgSingle['testfile'])
         shutil.copyfile(srcfile,tmp_filename)
         tmp_hash = hashfile(tmp_filename)
@@ -552,7 +560,7 @@ def benchmain():
             if cfgRuns['index'] is None:
                 tmp_filename = os.path.join(cfgConfig['temp_path'], f"deflatebench-{level}.tmp")
             else:
-                tmp_filename = os.path.join(cfgConfig['temp_path'], f"deflatebench-{level}.tmp" + str(cfgRuns['index']))
+                tmp_filename = os.path.join(cfgConfig['temp_path'], str(cfgRuns['index']) + f"deflatebench-{level}.tmp")
             tempfiles[level]['filename'] = tmp_filename
 
             if cfgRuns['testmode'] == 'multi':
@@ -682,8 +690,8 @@ def main():
     if args.testtool:
         cfgRuns['testtool'] = args.testtool
 
-    if 'minigzip' not in cfgRuns['testtool'] and 'minideflate' not in cfgRuns['testtool']:
-        print("Error, config file spesifies invalid testtool. Valid choices are 'minigzip' and 'minideflate'.")
+    if 'minigzip' not in cfgRuns['testtool'] and 'minideflate' not in cfgRuns['testtool'] and 'qzip' not in cfgRuns['testtool']:
+        print("Error, config file spesifies invalid testtool. Valid choices are 'minigzip', 'minideflate' and 'qzip'.")
         sys.exit(1)
 
     if not os.path.isfile( os.path.join( os.getcwd(), cfgRuns['testtool']) ):
