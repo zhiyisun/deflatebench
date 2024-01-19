@@ -82,7 +82,7 @@ def defconfig():
     config = dict()
     config['Testruns'] = {  'runs': 15,
                             'trimworst': 5,
-                            'minlevel': 1,
+                            'minlevel': 0,
                             'maxlevel': 9,
                             'strategies': '', # fhRF
                             'testmode': 'single',  # generate / multi / single
