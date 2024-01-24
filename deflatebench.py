@@ -66,10 +66,10 @@ def padstr(instr, length, left=False):
 
 def resultstr(result,totlen):
     ''' Build result string and pad to totlen'''
-    tmpr = ( f"{BLUE}{result['mintime']:.3f}{RESET}"
-             f"/{GREEN}{result['avgtime']:.3f}{RESET}"
-             f"/{RED}{result['maxtime']:.3f}{RESET}"
-             f"/{BRIGHT}{result['stddev']:.3f}{RESET}" )
+    tmpr = ( f"{BLUE}{result['mintime']:.5f}{RESET}"
+             f"/{GREEN}{result['avgtime']:.5f}{RESET}"
+             f"/{RED}{result['maxtime']:.5f}{RESET}"
+             f"/{BRIGHT}{result['stddev']:.5f}{RESET}" )
     return padstr(tmpr, totlen)
 
 def printnn(text):
@@ -285,6 +285,10 @@ def runtest(tempfiles,level):
 
     env = get_env(True)
 
+    if 'qzip' in cfgRuns['testtool']:
+        path_parts = os.path.splitext(compfile)
+        modified_compfile = os.path.join(*path_parts[:-1])
+
     sys.stdout.write(f"Testing level {level}: ")
     if sys.platform != 'win32':
         cmdprefix = command_prefix(timefile)
@@ -297,10 +301,9 @@ def runtest(tempfiles,level):
     testtool = os.path.realpath(cfgRuns['testtool'])
 
     if 'qzip' not in cfgRuns['testtool']:
-        runcommand(f"{cmdprefix} {testtool} -{level} -c {testfile}", env=env, output=compfile)
+        runcommand(f"{cmdprefix} {testtool} -{level} -k {testfile}", env=env)
+        shutil.move(testfile+".gz", compfile)
     else:
-        path_parts = os.path.splitext(compfile)
-        modified_compfile = os.path.join(*path_parts[:-1])
         runcommand(f"{cmdprefix} {testtool} -k -L {level} -A deflate {testfile} -o {modified_compfile}", env=env)
     if sys.platform != 'win32':
         comptime = parse_timefile(timefile)
@@ -314,13 +317,17 @@ def runtest(tempfiles,level):
         usleep(10)
         starttime = time.perf_counter()
         if 'qzip' not in cfgRuns['testtool']:
-            runcommand(f"{cmdprefix} {testtool} -d -c {compfile}", env=env, output=decompfile)
+            runcommand(f"{cmdprefix} {testtool} -d -k {compfile}", env=env)
+            path_parts = os.path.splitext(decompfile)
+            modified_decompfile = os.path.join(*path_parts[:-1])
+            shutil.move(modified_decompfile, decompfile)
         else:
             runcommand(f"{cmdprefix} {testtool} -k -d {compfile} -o {decompfile}", env=env)
 
         if sys.platform != 'win32':
             decomptime = parse_timefile(timefile)
         else:
+            print("per_counter() based solution is not working after adding qzip.")
             decomptime = time.perf_counter() - starttime
 
         if not cfgConfig['skipverify']:
@@ -348,7 +355,7 @@ def runtest(tempfiles,level):
     os.unlink(compfile)
 
     comppct = float(compsize*100)/tempfiles[level]['origsize']
-    printnn(f" {comptime:7.3f} {decomptime:7.3f} {compsize:15,} {comppct:7.3f}%")
+    printnn(f" {comptime:7.5f} {decomptime:7.5f} {compsize:15,} {comppct:7.5f}%")
     printnn('\n')
 
     return compsize,comptime,decomptime,hashfail
@@ -456,12 +463,12 @@ def calculate(results, tempfiles):
         res_totals['avgdecomptime2'], res_totals['avgdecompstr2'], res_totals['totdecompstr2'] = [''] * 3
     else:
         res_totals['avgdecomptime'] = totdecomptime/(res_totals['numlevels'] * res_totals['numresults'])
-        res_totals['avgdecompstr'] = f"{res_totals['avgdecomptime']:.3f}"
-        res_totals['totdecompstr'] = f"{totdecomptime:.3f}"
+        res_totals['avgdecompstr'] = f"{res_totals['avgdecomptime']:.5f}"
+        res_totals['totdecompstr'] = f"{totdecomptime:.5f}"
         if cfgRuns['minlevel'] == 0:
             res_totals['avgdecomptime2'] = totdecomptime2/((res_totals['numlevels'] - 1) * res_totals['numresults'])
-            res_totals['avgdecompstr2'] = f"{res_totals['avgdecomptime2']:.3f}"
-            res_totals['totdecompstr2'] = f"{totdecomptime2:.3f}"
+            res_totals['avgdecompstr2'] = f"{res_totals['avgdecomptime2']:.5f}"
+            res_totals['totdecompstr2'] = f"{totdecomptime2:.5f}"
 
     return res_comp, res_decomp, res_totals
 
@@ -494,17 +501,17 @@ def printreport(comp,decomp,totals):
         if not cfgConfig['skipdecomp']:
             decompstr = resultstr(decomp[level],30)
 
-        print(f" {level:5}{comp[level]['avgpct']:7.3f}% {compstr} {decompstr}  {comp[level]['compsize']:15,}")
+        print(f" {level:5}{comp[level]['avgpct']:7.5f}% {compstr} {decompstr}  {comp[level]['compsize']:15,}")
 
     # Print totals
-    print(f"\n {'avg1':5}{totals['avgcomppct']:7.3f}% {totals['avgcomptime']:28.3f} {totals['avgdecompstr']:>30}")
+    print(f"\n {'avg1':5}{totals['avgcomppct']:7.5f}% {totals['avgcomptime']:28.5f} {totals['avgdecompstr']:>30}")
     if cfgRuns['minlevel'] == 0:
-        print(f" {'avg2':5}{totals['avgcomppct2']:7.3f}% {totals['avgcomptime2']:28.3f} {totals['avgdecompstr2']:>30}")
+        print(f" {'avg2':5}{totals['avgcomppct2']:7.5f}% {totals['avgcomptime2']:28.5f} {totals['avgdecompstr2']:>30}")
 
     if cfgConfig['skipdecomp']:
-        print(f" {'tot':5} {'':8}{totals['totcomptime']:28.3f}   {totals['totsize']:15,}")
+        print(f" {'tot':5} {'':8}{totals['totcomptime']:28.5f}   {totals['totsize']:15,}")
     else:
-        print(f" {'tot':5} {'':8}{totals['totcomptime']:28.3f} {totals['totdecompstr']:>30}  {totals['totsize']:15,}")
+        print(f" {'tot':5} {'':8}{totals['totcomptime']:28.5f} {totals['totdecompstr']:>30}  {totals['totsize']:15,}")
 
 def printfile(level,filename):
     ''' Prints formatted information about file '''
