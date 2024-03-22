@@ -89,7 +89,7 @@ def defconfig():
                             'testtool': 'minigzip' } # minigzip / minideflate
 
     config['Config'] = {'temp_path': tempfile.gettempdir(),
-                        'use_perf': True,
+                        'use_perf': False,
                         'start_delay': 0,   # Milliseconds of startup to skip measuring, requires usleep(X*1000) in minigzip/minideflate main()
                         'skipverify': False,
                         'skipdecomp': False}
@@ -258,7 +258,7 @@ def command_prefix(filen):
         command += f" /usr/bin/perf stat -D {cfgConfig['start_delay']} -e cpu-clock:u -o '{filen}' -- "
     else:
         timeformat="%U"
-        command += f" -20 /usr/bin/time -o {timefile} -f '{timeformat}' -- "
+        command += f" /usr/bin/time -o {timefile} -- "
 
     return command
 
@@ -272,9 +272,13 @@ def parse_timefile(filen):
                 return float(line[:-13])
         return 0.0
     else:
+        data_before_user = 0
         with open(filen) as f:
             content = f.readlines()
-        return float(content[0])
+            parts = content[0].split()
+            user_index = parts.index("user")
+            data_before_user = parts[user_index - 1] if user_index > 0 else None
+        return float(data_before_user)
 
 def runtest(tempfiles,level):
     ''' Run benchmark and tests for current compression level'''
